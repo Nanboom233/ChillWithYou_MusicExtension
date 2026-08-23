@@ -1,0 +1,105 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>MusicBridge.Plugin</AssemblyName>
+    <RootNamespace>MusicBridge</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <Version>1.2.0</Version>
+
+    <!--
+      游戏安装目录（含 Chill With You_Data 的那一级）。
+      默认指向本机 Steam 安装位置，其他机器可用 -p:GameDir="..." 覆盖。
+      引用的 UnityEngine 系列与 Newtonsoft.Json 程序集取自游戏自带的 Managed 目录；
+      BepInEx / Harmony 以 NuGet 包依赖引入（源见仓库根目录 nuget.config）。
+      构建成功后若检测到游戏目录存在，会自动把插件复制到 BepInEx\plugins\ChillWithYouMusicBridge\。
+    -->
+    <GameDir Condition="'$(GameDir)' == ''">D:\Steam\steamapps\common\Chill with You Lo-Fi Story</GameDir>
+    <ManagedDir>$(GameDir)\Chill With You_Data\Managed</ManagedDir>
+    <PluginInstallDir>$(GameDir)\BepInEx\plugins\ChillWithYouMusicBridge</PluginInstallDir>
+    <!-- Mod 工程：依赖包仅参与编译，不复制进输出目录（运行时由游戏内的 BepInEx 自带） -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+    <!-- BepInEx.Core 为元包：传递引入 BepInEx.BaseLib（BepInEx.dll）与 HarmonyX。
+         全部使用精确版本号：浮动范围（如 5.4.*）在 IDE 内还原时需要在线枚举源，容易 NU1100 -->
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" />
+    <!-- 官方源最高只到 5.4.21（原版的 5.4.23.5 仅发布过 GitHub Release 包），
+         显式钉住 BaseLib 以取到最高的 5.4.21；运行时由游戏内实际安装的 BepInEx 提供，版本差异无影响 -->
+    <PackageReference Include="BepInEx.BaseLib" Version="5.4.21" />
+    <!-- 锁定与原版一致的 0Harmony 2.9.0.0 -->
+    <PackageReference Include="HarmonyX" Version="2.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestTextureModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(ManagedDir)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- 旧版单体程序集，BepInEx 的 BaseUnityPlugin 基类链需要 -->
+    <Reference Include="UnityEngine">
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- 游戏的 Unity 程序集基于 netstandard2.1 编译，需要引用其自带的门面程序集 -->
+    <Reference Include="netstandard">
+      <HintPath>$(ManagedDir)\netstandard.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Debug/Release 均部署：调试时游戏必须加载最新构建（含符号文件） -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="Exists('$(PluginInstallDir)')">
+    <Message Importance="high" Text="已部署插件到游戏目录: $(PluginInstallDir)" />
+    <!-- 连同 PDB 一起部署：Mono 软调试器需要符号文件才能绑定断点 -->
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginInstallDir)" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginInstallDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
